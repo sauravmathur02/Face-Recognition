@@ -119,7 +119,21 @@ html, body, [data-testid="stApp"], [data-testid="stAppViewContainer"] {
     border-bottom-color: #3B82F6 !important;
 }
 
-/* Premium Card */
+/* Premium Card & Animations */
+@keyframes slideUpFade {
+    0% { opacity: 0; transform: translateY(8px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pageFadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+[data-testid="stMain"] > div {
+    animation: pageFadeIn 0.3s ease-out;
+}
+
 .premium-card {
     background-color: #111111;
     border: 1px solid #1A1A1A;
@@ -127,6 +141,7 @@ html, body, [data-testid="stApp"], [data-testid="stAppViewContainer"] {
     padding: 1.5rem;
     box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);
     transition: all 0.2s ease;
+    animation: slideUpFade 0.25s ease-out forwards;
 }
 .premium-card:hover {
     border-color: #2A2A2A;

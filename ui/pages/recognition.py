@@ -47,11 +47,13 @@ def render():
 
     if start_clicked:
         st.session_state.cam_active = True
+        st.toast("Recognition Started", icon="📷")
         st.rerun()
 
     if stop_clicked:
         st.session_state.cam_active = False
         api.release_camera()
+        st.toast("Recognition Stopped", icon="🛑")
         st.rerun()
 
     st.markdown('<hr style="margin:1.5rem 0;">', unsafe_allow_html=True)

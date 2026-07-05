@@ -1,4 +1,5 @@
 import streamlit as st
+import backend as api
 from config import MODEL_NAME, SIMILARITY_THRESHOLD, DB_PATH, CAMERA_ID
 from ui.components import render_header
 
@@ -19,34 +20,27 @@ def render():
 
     st.markdown('<div style="font-size:0.75rem; font-weight:600; color:#475569; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">System Architecture</div>', unsafe_allow_html=True)
 
+    user_count = len(api.get_all_users())
+
     st.markdown("""
-    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:1rem; margin-bottom:3rem;">
-        <div class="premium-card">
-            <i class="ph ph-brain" style="font-size:1.5rem; color:#E2E8F0; margin-bottom:1rem; display:block;"></i>
-            <div style="font-size:0.75rem; color:#64748B; font-weight:500; margin-bottom:0.25rem;">Inference Model</div>
-            <div style="font-size:0.9rem; font-weight:600; color:#F8FAFC;">InsightFace</div>
-            <div style="font-size:0.75rem; color:#94A3B8;">buffalo_sc</div>
+    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:1rem; margin-bottom:3rem;">
+        <div class="premium-card" style="display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center;">
+            <i class="ph ph-users" style="font-size:2rem; color:#E2E8F0; margin-bottom:0.75rem;"></i>
+            <div style="font-size:0.75rem; color:#64748B; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.25rem;">Total Users</div>
+            <div style="font-size:1.75rem; font-weight:700; color:#F8FAFC;">{count}</div>
         </div>
-        <div class="premium-card">
-            <i class="ph ph-database" style="font-size:1.5rem; color:#E2E8F0; margin-bottom:1rem; display:block;"></i>
-            <div style="font-size:0.75rem; color:#64748B; font-weight:500; margin-bottom:0.25rem;">Storage</div>
-            <div style="font-size:0.9rem; font-weight:600; color:#F8FAFC;">SQLite</div>
-            <div style="font-size:0.75rem; color:#94A3B8;">Local DB</div>
+        <div class="premium-card" style="display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center;">
+            <i class="ph ph-brain" style="font-size:2rem; color:#E2E8F0; margin-bottom:0.75rem;"></i>
+            <div style="font-size:0.75rem; color:#64748B; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.25rem;">Active Model</div>
+            <div style="font-size:1.75rem; font-weight:700; color:#3B82F6;">{model}</div>
         </div>
-        <div class="premium-card">
-            <i class="ph ph-target" style="font-size:1.5rem; color:#E2E8F0; margin-bottom:1rem; display:block;"></i>
-            <div style="font-size:0.75rem; color:#64748B; font-weight:500; margin-bottom:0.25rem;">Threshold</div>
-            <div style="font-size:0.9rem; font-weight:600; color:#3B82F6;">89%</div>
-            <div style="font-size:0.75rem; color:#94A3B8;">Cosine Similarity</div>
-        </div>
-        <div class="premium-card">
-            <i class="ph ph-webcam" style="font-size:1.5rem; color:#E2E8F0; margin-bottom:1rem; display:block;"></i>
-            <div style="font-size:0.75rem; color:#64748B; font-weight:500; margin-bottom:0.25rem;">Input Source</div>
-            <div style="font-size:0.9rem; font-weight:600; color:#22C55E;">Webcam</div>
-            <div style="font-size:0.75rem; color:#94A3B8;">Device 0</div>
+        <div class="premium-card" style="display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center;">
+            <i class="ph ph-target" style="font-size:2rem; color:#E2E8F0; margin-bottom:0.75rem;"></i>
+            <div style="font-size:0.75rem; color:#64748B; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.25rem;">Threshold</div>
+            <div style="font-size:1.75rem; font-weight:700; color:#22C55E;">{thresh}%</div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """.format(count=user_count, model=api.MODEL_NAME, thresh=api.SIMILARITY_THRESHOLD), unsafe_allow_html=True)
 
     c1, c2, c3 = st.columns([1, 1, 4])
     with c1:

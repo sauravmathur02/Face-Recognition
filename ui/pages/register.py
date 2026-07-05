@@ -83,9 +83,9 @@ def render():
 
         if register_btn:
             if not name.strip():
-                st.error("Subject Name is required.")
+                st.toast("Subject Name is required.", icon="⚠️")
             elif not uploaded or len(uploaded) < MIN_REG_IMAGES:
-                st.error(f"Insufficient assets. Required: {MIN_REG_IMAGES}, Provided: {len(uploaded or [])}.")
+                st.toast(f"Insufficient assets. Required: {MIN_REG_IMAGES}, Provided: {len(uploaded or [])}.", icon="⚠️")
             else:
                 images = []
                 for f in uploaded:
@@ -98,9 +98,9 @@ def render():
                     ok, msg = api.register_user(name.strip(), images)
 
                 if ok:
-                    st.success(msg)
+                    st.toast(msg, icon="✅")
                 else:
-                    st.error(msg)
+                    st.toast(msg, icon="❌")
 
     else:
         if "webcam_frames" not in st.session_state:
@@ -113,11 +113,13 @@ def render():
         with ctrl1:
             if st.button("Start Feed", key="reg_start_cam", type="primary", disabled=st.session_state.reg_cam_active, use_container_width=True):
                 st.session_state.reg_cam_active = True
+                st.toast("Camera Started", icon="📷")
                 st.rerun()
         with ctrl2:
             if st.button("Stop Feed", key="reg_stop_cam", disabled=not st.session_state.reg_cam_active, use_container_width=True):
                 st.session_state.reg_cam_active = False
                 api.release_camera()
+                st.toast("Camera Stopped", icon="🛑")
                 st.rerun()
         with ctrl3:
             if st.button("Capture Frame", key="reg_capture_btn", type="primary", disabled=not st.session_state.reg_cam_active, use_container_width=True):
@@ -162,17 +164,17 @@ def render():
 
                 if st.button("Enroll Subject", key="reg_enroll_cam", type="primary", use_container_width=True):
                     if not name.strip():
-                        st.error("Subject Name required.")
+                        st.toast("Subject Name required.", icon="⚠️")
                     elif not ready:
-                        st.error("Insufficient frames.")
+                        st.toast("Insufficient frames.", icon="⚠️")
                     else:
                         with st.spinner("Extracting..."):
                             ok, msg = api.register_user(name.strip(), st.session_state.webcam_frames)
                         if ok:
-                            st.success(msg)
+                            st.toast(msg, icon="✅")
                             st.session_state.webcam_frames = []
                         else:
-                            st.error(msg)
+                            st.toast(msg, icon="❌")
 
         if st.session_state.reg_cam_active:
             while st.session_state.reg_cam_active:

@@ -1,3 +1,4 @@
+import time
 import streamlit as st
 import backend as api
 from ui.components import render_header
@@ -67,8 +68,10 @@ def render():
             if st.button("Revoke", key=f"del_{uid}", use_container_width=True):
                 ok = api.delete_user(uid)
                 if ok:
+                    st.toast("Identity Revoked", icon="🗑️")
+                    time.sleep(0.5) # Give toast a moment to register before rerun
                     st.rerun()
                 else:
-                    st.error("Failed to revoke identity.")
+                    st.toast("Failed to revoke identity.", icon="❌")
         
         st.markdown('<div style="height:1px; background-color:#111111; margin:0.25rem 0;"></div>', unsafe_allow_html=True)
