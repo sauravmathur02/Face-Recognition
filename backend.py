@@ -17,6 +17,7 @@ from config import (
     MIN_DET_SCORE,
     MIN_FACE_AREA,
     MIN_REG_IMAGES,
+    BLUR_THRESHOLD,
 )
 from utils import normalize_embedding, cosine_similarity, get_logger
 
@@ -123,6 +124,13 @@ def _get_registration_images(name: str) -> list:
 
 def validate_face_image(img_bgr: np.ndarray) -> tuple:
 
+    # 1. Blur Detection (Laplacian Variance)
+    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    variance = cv2.Laplacian(gray, cv2.CV_64F).var()
+    if variance < BLUR_THRESHOLD:
+        return False, f"Image is blurry (variance: {variance:.1f} < {BLUR_THRESHOLD}). Hold still.", None
+
+    # 2. Face Detection & Validation
     app = get_face_app()
     faces = app.get(img_bgr)
     if not faces:
@@ -134,7 +142,7 @@ def validate_face_image(img_bgr: np.ndarray) -> tuple:
         return False, f"Detection confidence too low ({f.det_score:.2f}).", None
     area = (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1])
     if area < MIN_FACE_AREA:
-        return False, "Face is too small or blurry. Move closer.", None
+        return False, "Face is too small. Move closer.", None
     return True, "Valid", f
 
 def register_user(name: str, images: list) -> tuple:
@@ -159,30 +167,17 @@ def register_user(name: str, images: list) -> tuple:
 
     user_dir = os.path.join(REGISTRATIONS_DIR, name)
     os.makedirs(user_dir, exist_ok=True)
-    for img, _ in valid_pairs:
+    
+    embeddings = []
+    for img, face_obj in valid_pairs:
+        # Save image to disk (for reference only, no longer read for embeddings)
         path = os.path.join(user_dir, f"{uuid.uuid4().hex}.jpg")
         cv2.imwrite(path, img)
-
-    app = get_face_app()
-    embeddings = []
-    for img_path in _get_registration_images(name):
-        img = cv2.imread(img_path)
-        if img is None:
-            continue
-        faces = app.get(img)
-        valid_faces = [
-            f for f in faces
-            if f.det_score >= MIN_DET_SCORE
-            and (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]) >= MIN_FACE_AREA
-        ]
-        if valid_faces:
-            best = max(
-                valid_faces,
-                key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]),
-            )
-            embeddings.append(
-                normalize_embedding(best.embedding.astype(np.float32))
-            )
+        
+        # Use the already extracted embedding directly
+        embeddings.append(
+            normalize_embedding(face_obj.embedding.astype(np.float32))
+        )
 
     if not embeddings:
         return False, "Failed to extract embeddings from the provided images."

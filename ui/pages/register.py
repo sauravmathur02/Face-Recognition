@@ -1,35 +1,60 @@
+import time
 import cv2
 import numpy as np
 import streamlit as st
 
 import backend as api
 from config import MIN_REG_IMAGES
+from ui.components import render_header
 
 def render():
+    render_header("Register", "Identity Enrollment")
+
     st.markdown("""
-    <div class="page-title">Register User</div>
-    <div class="page-subtitle">Add a new face to the recognition database</div>
+    <div style="max-width: 600px; margin-bottom: 2rem;">
+        <div style="font-size:0.875rem; color:#94A3B8; line-height:1.6;">
+            Enroll a new subject into the recognition database. Provide a unique identifier and supply at least 
+            <strong style="color:#F8FAFC;">3 high-quality images</strong> for accurate feature extraction.
+        </div>
+    </div>
     """, unsafe_allow_html=True)
 
     name = st.text_input(
-        "Full Name",
-        placeholder="e.g. John Doe",
+        "Subject Name",
+        placeholder="e.g. Jane Doe",
         key="reg_name",
-        label_visibility="visible",
     )
+    
+    if "reg_mode" not in st.session_state:
+        st.session_state.reg_mode = "upload"
+    if "reg_cam_active" not in st.session_state:
+        st.session_state.reg_cam_active = False
 
-    tab_upload, tab_webcam = st.tabs(["📁  Upload Images", "📸  Webcam Capture"])
+    st.markdown('<br>', unsafe_allow_html=True)
 
-    with tab_upload:
-        st.markdown(f"""
-        <div style="font-size:0.82rem; color:#64748B; margin-bottom:0.8rem;">
-            Upload at least <strong style="color:#60A5FA;">{MIN_REG_IMAGES} photos</strong>
-            with a clear, front-facing face. More photos = better accuracy.
-        </div>
-        """, unsafe_allow_html=True)
+    c1, c2, _ = st.columns([1, 1, 4])
+    with c1:
+        is_up = st.session_state.reg_mode == "upload"
+        if st.button("File Upload", key="mode_up", use_container_width=True):
+            st.session_state.reg_mode = "upload"
+            st.session_state.reg_cam_active = False
+            api.release_camera()
+            st.rerun()
+    with c2:
+        is_cam = st.session_state.reg_mode == "webcam"
+        if st.button("Webcam Capture", key="mode_cam", use_container_width=True):
+            st.session_state.reg_mode = "webcam"
+            st.rerun()
+            
+    st.markdown(f"""
+    <div style="display:flex; width:100%; border-bottom:1px solid #1A1A1A; margin-bottom:2rem; position:relative;">
+        <div style="position:absolute; bottom:-1px; height:2px; background-color:#3B82F6; width:120px; left:{'0' if is_up else '130px'}; transition:all 0.2s ease;"></div>
+    </div>
+    """, unsafe_allow_html=True)
 
+    if st.session_state.reg_mode == "upload":
         uploaded = st.file_uploader(
-            "Choose image files",
+            "Upload image assets",
             type=["jpg", "jpeg", "png"],
             accept_multiple_files=True,
             key="reg_uploader",
@@ -38,33 +63,29 @@ def render():
 
         if uploaded:
             st.markdown(f"""
-            <div style="font-size:0.82rem; color:#4ADE80; margin:0.5rem 0;">
-                ✓ {len(uploaded)} file(s) selected
+            <div style="display:flex; align-items:center; gap:0.5rem; margin:1rem 0;">
+                <i class="ph-fill ph-check-circle" style="color:#22C55E;"></i>
+                <span style="font-size:0.875rem; font-weight:500; color:#E2E8F0;">{len(uploaded)} assets staged</span>
             </div>
             """, unsafe_allow_html=True)
 
             cols = st.columns(min(len(uploaded), 5))
             for i, f in enumerate(uploaded[:5]):
                 with cols[i]:
+                    st.markdown('<div style="border-radius:6px; overflow:hidden; border:1px solid #1A1A1A;">', unsafe_allow_html=True)
                     st.image(f, use_container_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
             if len(uploaded) > 5:
-                st.caption(f"+ {len(uploaded)-5} more file(s)")
+                st.caption(f"and {len(uploaded)-5} more...")
 
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown('<div class="btn-primary">', unsafe_allow_html=True)
-        register_btn = st.button(
-            "✅  Register Face", key="reg_upload_submit", use_container_width=True
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
+        register_btn = st.button("Enroll Subject", key="reg_upload_submit", type="primary", use_container_width=True)
 
         if register_btn:
             if not name.strip():
-                st.error("Please enter a name first.")
+                st.error("Subject Name is required.")
             elif not uploaded or len(uploaded) < MIN_REG_IMAGES:
-                st.error(
-                    f"Please upload at least {MIN_REG_IMAGES} images "
-                    f"(you uploaded {len(uploaded or [])})."
-                )
+                st.error(f"Insufficient assets. Required: {MIN_REG_IMAGES}, Provided: {len(uploaded or [])}.")
             else:
                 images = []
                 for f in uploaded:
@@ -73,99 +94,94 @@ def render():
                     if img is not None:
                         images.append(img)
 
-                with st.spinner("Processing and registering…"):
+                with st.spinner("Extracting features..."):
                     ok, msg = api.register_user(name.strip(), images)
 
                 if ok:
-                    st.success(f"🎉 {msg}")
-                    st.balloons()
+                    st.success(msg)
                 else:
-                    st.error(f"❌ {msg}")
+                    st.error(msg)
 
-    with tab_webcam:
-        st.markdown(f"""
-        <div style="font-size:0.82rem; color:#64748B; margin-bottom:0.8rem;">
-            Capture at least <strong style="color:#60A5FA;">{MIN_REG_IMAGES} photos</strong>
-            from your webcam. Vary your pose slightly between captures.
-        </div>
-        """, unsafe_allow_html=True)
-
+    else:
         if "webcam_frames" not in st.session_state:
             st.session_state.webcam_frames = []
 
         count = len(st.session_state.webcam_frames)
         ready = count >= MIN_REG_IMAGES
-        status_color  = "#4ADE80" if ready else "#F59E0B"
-        status_text   = f"{'✓ Ready to register' if ready else f'{count}/{MIN_REG_IMAGES} captures'}"
+        
+        ctrl1, ctrl2, ctrl3, ctrl4 = st.columns([1, 1, 1.5, 3])
+        with ctrl1:
+            if st.button("Start Feed", key="reg_start_cam", type="primary", disabled=st.session_state.reg_cam_active, use_container_width=True):
+                st.session_state.reg_cam_active = True
+                st.rerun()
+        with ctrl2:
+            if st.button("Stop Feed", key="reg_stop_cam", disabled=not st.session_state.reg_cam_active, use_container_width=True):
+                st.session_state.reg_cam_active = False
+                api.release_camera()
+                st.rerun()
+        with ctrl3:
+            if st.button("Capture Frame", key="reg_capture_btn", type="primary", disabled=not st.session_state.reg_cam_active, use_container_width=True):
+                f = api.capture_frame()
+                if f is not None:
+                    st.session_state.webcam_frames.append(f.copy())
 
+        status_color = "#22C55E" if ready else "#F59E0B"
+        status_icon  = "ph-check-circle" if ready else "ph-camera"
         st.markdown(f"""
-        <div style="
-            display:flex; align-items:center; gap:0.75rem;
-            padding:0.6rem 1rem;
-            background: rgba(255,255,255,0.03);
-            border:1px solid rgba(255,255,255,0.07);
-            border-radius:10px;
-            margin-bottom:0.8rem;
-        ">
-            <span style="font-size:1.2rem;">📷</span>
-            <span style="color:{status_color}; font-weight:700; font-size:0.9rem;">
-                {status_text}
-            </span>
+        <div style="display:flex; align-items:center; gap:0.5rem; margin-top:1rem; margin-bottom:2rem;">
+            <div class="badge {'success' if ready else 'warning'}">
+                <i class="ph {status_icon}"></i> {count} / {MIN_REG_IMAGES} captures ready
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
-        cam_col1, cam_col2, cam_col3 = st.columns([1, 1, 1])
+        feed_col, gallery_col = st.columns([2, 1.2])
 
-        with cam_col1:
-            if st.button("📸  Capture Frame", key="reg_capture", use_container_width=True):
-                frame = api.capture_frame()
-                if frame is None:
-                    st.error("Camera not available.")
-                else:
-                    st.session_state.webcam_frames.append(frame.copy())
+        with feed_col:
+            if not st.session_state.reg_cam_active:
+                st.markdown("""
+                <div class="empty-state" style="padding: 3rem;">
+                    <i class="ph ph-video-camera-slash" style="font-size:2rem;"></i>
+                    <div class="empty-state-title" style="font-size:0.875rem;">Camera Offline</div>
+                </div>
+                """, unsafe_allow_html=True)
+            feed_placeholder = st.empty()
+
+        with gallery_col:
+            if st.session_state.webcam_frames:
+                st.markdown('<div style="font-size:0.75rem; font-weight:600; color:#475569; text-transform:uppercase; margin-bottom:0.5rem;">Buffer</div>', unsafe_allow_html=True)
+                g_cols = st.columns(2)
+                for i, f in enumerate(st.session_state.webcam_frames[:4]):
+                    with g_cols[i%2]:
+                        st.image(cv2.cvtColor(f, cv2.COLOR_BGR2RGB), use_container_width=True)
+                        st.markdown('<div style="height:0.5rem;"></div>', unsafe_allow_html=True)
+                
+                if st.button("Clear Buffer", key="reg_clear_buf", use_container_width=True):
+                    st.session_state.webcam_frames = []
                     st.rerun()
 
-        with cam_col2:
-            if st.button("🗑️  Clear All", key="reg_clear_webcam", use_container_width=True):
-                st.session_state.webcam_frames = []
-                st.rerun()
+                if st.button("Enroll Subject", key="reg_enroll_cam", type="primary", use_container_width=True):
+                    if not name.strip():
+                        st.error("Subject Name required.")
+                    elif not ready:
+                        st.error("Insufficient frames.")
+                    else:
+                        with st.spinner("Extracting..."):
+                            ok, msg = api.register_user(name.strip(), st.session_state.webcam_frames)
+                        if ok:
+                            st.success(msg)
+                            st.session_state.webcam_frames = []
+                        else:
+                            st.error(msg)
 
-        with cam_col3:
-            st.markdown('<div class="btn-primary">', unsafe_allow_html=True)
-            webcam_register_btn = st.button(
-                "✅  Register", key="reg_webcam_submit", use_container_width=True
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        if st.session_state.webcam_frames:
-            frames = st.session_state.webcam_frames
-            cols   = st.columns(min(len(frames), 5))
-            for i, f in enumerate(frames[:5]):
-                with cols[i]:
-                    st.image(
-                        cv2.cvtColor(f, cv2.COLOR_BGR2RGB),
-                        use_container_width=True,
-                        caption=f"#{i+1}",
-                    )
-            if len(frames) > 5:
-                st.caption(f"+ {len(frames)-5} more captured")
-
-        if webcam_register_btn:
-            if not name.strip():
-                st.error("Please enter a name first.")
-            elif not ready:
-                st.error(
-                    f"Please capture at least {MIN_REG_IMAGES} frames "
-                    f"(captured {count})."
-                )
-            else:
-                with st.spinner("Processing and registering…"):
-                    ok, msg = api.register_user(
-                        name.strip(), st.session_state.webcam_frames
-                    )
-                if ok:
-                    st.success(f"🎉 {msg}")
-                    st.session_state.webcam_frames = []
-                    st.balloons()
+        if st.session_state.reg_cam_active:
+            while st.session_state.reg_cam_active:
+                f = api.capture_frame()
+                if f is not None:
+                    feed_placeholder.image(f, channels="BGR", use_container_width=True)
                 else:
-                    st.error(f"❌ {msg}")
+                    st.session_state.reg_cam_active = False
+                    api.release_camera()
+                    st.rerun()
+                    break
+                time.sleep(0.03)

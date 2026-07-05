@@ -1,65 +1,49 @@
 import time
-
 import cv2
+import textwrap
 import streamlit as st
-
 import backend as api
+from ui.components import render_header
 
 def render():
-    st.markdown("""
-    <div class="page-title">Face Recognition</div>
-    <div class="page-subtitle">Live webcam recognition · cosine similarity · threshold ≥ 89%</div>
-    """, unsafe_allow_html=True)
+    render_header("Recognition", "Real-Time Detection & Inference")
 
     user_count = api.get_user_count()
     if user_count == 0:
         st.markdown("""
-        <div class="glass-card" style="text-align:center;padding:2.5rem;">
-            <div style="font-size:2.5rem;margin-bottom:0.8rem;">👤</div>
-            <div style="font-size:1rem;font-weight:700;color:#E2E8F0;margin-bottom:0.4rem;">
-                No registered users yet
-            </div>
-            <div style="font-size:0.85rem;color:#64748B;">
-                Register at least one face before running recognition.
-            </div>
+        <div class="empty-state">
+            <i class="ph ph-user-minus"></i>
+            <div class="empty-state-title">Database Empty</div>
+            <div class="empty-state-desc">Register identities to enable recognition.</div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("➕  Register a User", key="rec_go_register"):
+        if st.button("Register Identity", type="primary"):
             st.session_state.current_page = "Register"
             st.rerun()
         return
 
     if not api.is_camera_available():
-        st.error("⚠️  No camera found on device ID 0. Connect a webcam and restart.")
+        st.error("Camera source offline.")
         return
 
     cam_active = st.session_state.get("cam_active", False)
 
-    ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 3])
+    ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 6])
     with ctrl1:
-        start_clicked = st.button(
-            "▶  Start",
-            key="rec_start",
-            use_container_width=True,
-            disabled=cam_active,
-        )
+        start_clicked = st.button("Start Feed", key="rec_start", type="primary", disabled=cam_active, use_container_width=True)
     with ctrl2:
-        stop_clicked = st.button(
-            "⏹  Stop",
-            key="rec_stop",
-            use_container_width=True,
-            disabled=not cam_active,
-        )
+        stop_clicked = st.button("Stop Feed", key="rec_stop", disabled=not cam_active, use_container_width=True)
     with ctrl3:
-        st.markdown(
-            f'<div style="padding:0.55rem 0.9rem;background:rgba(255,255,255,0.03);'
-            f'border:1px solid rgba(255,255,255,0.07);border-radius:10px;'
-            f'font-size:0.82rem;color:#94A3B8;display:flex;align-items:center;gap:0.6rem;">'
-            f'<span style="color:#60A5FA;font-weight:700;">{user_count}</span>'
-            f'&nbsp;face(s) loaded&nbsp;·&nbsp;'
-            f'<span style="color:#A78BFA;font-weight:700;">89%</span>&nbsp;threshold</div>',
-            unsafe_allow_html=True,
-        )
+        st.markdown(f"""
+        <div style="display:flex; justify-content:flex-end; align-items:center; height:100%;">
+            <div class="badge">
+                <i class="ph ph-database" style="color:#64748B;"></i> {user_count} Profiles
+            </div>
+            <div class="badge" style="margin-left:0.5rem;">
+                <i class="ph ph-crosshair" style="color:#64748B;"></i> 89% Threshold
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     if start_clicked:
         st.session_state.cam_active = True
@@ -70,81 +54,131 @@ def render():
         api.release_camera()
         st.rerun()
 
-    st.markdown("---")
+    st.markdown('<hr style="margin:1.5rem 0;">', unsafe_allow_html=True)
 
     if not st.session_state.get("cam_active", False):
         st.markdown("""
-        <div style="text-align:center;padding:3rem;
-                    background:rgba(255,255,255,0.02);
-                    border:1px dashed rgba(255,255,255,0.08);
-                    border-radius:18px;color:#334155;font-size:0.9rem;">
-            <div style="font-size:3rem;margin-bottom:0.8rem;">📹</div>
-            Press <strong style="color:#60A5FA;">▶ Start</strong> to begin live recognition
+        <div class="empty-state">
+            <i class="ph ph-video-camera-slash"></i>
+            <div class="empty-state-title">Camera Feed Offline</div>
+            <div class="empty-state-desc">Start the feed to begin real-time inference.</div>
         </div>
         """, unsafe_allow_html=True)
         return
 
-    feed_col, result_col = st.columns([3, 2])
-
-    frame = api.capture_frame()
-
-    if frame is None:
-        st.error("❌ Failed to read from camera. Check your webcam connection.")
-        st.session_state.cam_active = False
-        api.release_camera()
-        return
-
-    annotated, results = api.recognize_frame(frame)
-    frame_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
-
+    feed_col, result_col = st.columns([2, 1.2])
+    
     with feed_col:
-        st.image(
-            frame_rgb,
-            channels="RGB",
-            use_container_width=True,
-            caption="Live recognition feed",
-        )
-
+        feed_placeholder = st.empty()
+    
     with result_col:
-        st.markdown(
-            '<div style="font-size:0.72rem;font-weight:700;color:#475569;'
-            'text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.6rem;">'
-            'Detection Results</div>',
-            unsafe_allow_html=True,
-        )
+        st.markdown('<div style="font-size:0.75rem; font-weight:600; color:#475569; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Inference Result</div>', unsafe_allow_html=True)
+        result_placeholder = st.empty()
 
-        if results:
-            for r in results:
-                if r["recognized"]:
-                    st.markdown(
-                        f'<div class="result-card-ok">'
-                        f'<div style="font-size:1rem;font-weight:800;color:#4ADE80;">✅ {r["name"]}</div>'
-                        f'<div style="font-size:0.82rem;color:#86EFAC;margin-top:0.25rem;">'
-                        f'Similarity: <strong>{r["similarity"]:.1f}%</strong></div>'
-                        f'<div style="font-size:0.72rem;color:#4ADE80;margin-top:0.1rem;">● Recognized</div>'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown(
-                        f'<div class="result-card-unknown">'
-                        f'<div style="font-size:1rem;font-weight:800;color:#F87171;">❓ Unknown</div>'
-                        f'<div style="font-size:0.82rem;color:#FCA5A5;margin-top:0.25rem;">'
-                        f'Best match: <strong>{r["similarity"]:.1f}%</strong></div>'
-                        f'<div style="font-size:0.72rem;color:#F87171;margin-top:0.1rem;">'
-                        f'● Below threshold (89%)</div>'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
+    st.markdown('<hr style="margin:2rem 0;">', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:0.75rem; font-weight:600; color:#475569; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Recognition History</div>', unsafe_allow_html=True)
+    history_placeholder = st.empty()
+    
+    if "rec_history" not in st.session_state:
+        st.session_state.rec_history = []
+
+    # High-performance inference loop
+    while st.session_state.get("cam_active", False):
+        t0 = time.time()
+        frame = api.capture_frame()
+        if frame is None:
+            st.session_state.cam_active = False
+            api.release_camera()
+            st.rerun()
+            break
+            
+        annotated, results = api.recognize_frame(frame)
+        frame_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+        dt = (time.time() - t0) * 1000
+
+        feed_placeholder.image(frame_rgb, use_container_width=True)
+
+        if not results:
+            html = """
+            <div class="premium-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:3rem 1rem; border-style:dashed;">
+                <i class="ph ph-scan" style="font-size:2rem; color:#333333; margin-bottom:1rem;"></i>
+                <div style="font-size:0.875rem; color:#94A3B8; font-weight:500;">No subjects detected in frame</div>
+            </div>
+            """
+            result_placeholder.markdown(html, unsafe_allow_html=True)
         else:
-            st.markdown(
-                '<div style="padding:1.5rem;text-align:center;'
-                'background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);'
-                'border-radius:14px;color:#334155;font-size:0.85rem;">'
-                '<div style="font-size:1.5rem;margin-bottom:0.4rem;">👁️</div>'
-                'No faces detected</div>',
-                unsafe_allow_html=True,
-            )
+            cards_html = ""
+            for r in results:
+                status_class = "success" if r["recognized"] else "danger"
+                status_color = "#22C55E" if r["recognized"] else "#EF4444"
+                status_icon  = "ph-check-circle" if r["recognized"] else "ph-warning-circle"
+                status_text  = "Verified" if r["recognized"] else "Unknown Identity"
+                sim_str = f"{r['similarity']:.1f}%"
+                
+                if r["recognized"]:
+                    entry = {
+                        "name": r["name"],
+                        "time": time.strftime("%H:%M:%S"),
+                        "sim": sim_str
+                    }
+                    if not st.session_state.rec_history:
+                        st.session_state.rec_history.insert(0, entry)
+                    elif st.session_state.rec_history[0]["name"] == r["name"]:
+                        st.session_state.rec_history[0]["time"] = entry["time"]
+                        st.session_state.rec_history[0]["sim"] = entry["sim"]
+                    else:
+                        st.session_state.rec_history.insert(0, entry)
+                        if len(st.session_state.rec_history) > 4:
+                            st.session_state.rec_history.pop()
 
-    time.sleep(0.04)
-    st.rerun()
+                card = textwrap.dedent(f"""
+                <div class="premium-card" style="margin-bottom:1rem; border-left: 3px solid {status_color};">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.5rem;">
+                        <div>
+                            <div style="font-size:0.7rem; color:#64748B; font-weight:500; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.25rem;">Subject</div>
+                            <div style="font-size:1.25rem; font-weight:600; color:#F8FAFC;">{r["name"]}</div>
+                        </div>
+                        <div class="badge {status_class}">
+                            <i class="ph {status_icon}"></i> {status_text}
+                        </div>
+                    </div>
+                    <div style="margin-bottom:1.25rem;">
+                        <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:0.5rem;">
+                            <span style="color:#94A3B8; font-weight:500;">Confidence Score</span>
+                            <span style="color:#F8FAFC; font-weight:600;">{sim_str}</span>
+                        </div>
+                        <div class="progress-bg">
+                            <div class="progress-fill {status_class}" style="width: {r['similarity']}%;"></div>
+                        </div>
+                    </div>
+                    <div style="background-color:#050505; border-radius:8px; padding:0.875rem; border:1px solid #1A1A1A;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; margin-bottom:0.5rem;">
+                            <span style="color:#64748B;">Model</span>
+                            <span style="color:#E2E8F0; font-family:monospace;">{api.MODEL_NAME}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem;">
+                            <span style="color:#64748B;">Latency</span>
+                            <span style="color:#E2E8F0; font-family:monospace;">{dt:.0f} ms</span>
+                        </div>
+                    </div>
+                </div>
+                """)
+                cards_html += card
+            result_placeholder.markdown(cards_html, unsafe_allow_html=True)
+            
+            if st.session_state.rec_history:
+                hist_html = '<div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:1rem;">'
+                for h in st.session_state.rec_history:
+                    hist_html += textwrap.dedent(f"""
+                    <div class="premium-card" style="padding:1rem;">
+                        <div style="font-size:0.875rem; font-weight:600; color:#F8FAFC; margin-bottom:0.25rem;">{h["name"]}</div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:#94A3B8;">
+                            <span>{h["time"]}</span>
+                            <span style="color:#22C55E; font-weight:500;">{h["sim"]}</span>
+                        </div>
+                    </div>
+                    """)
+                hist_html += '</div>'
+                history_placeholder.markdown(hist_html, unsafe_allow_html=True)
+        
+        time.sleep(0.03) # Cap framerate slightly to prevent browser lockup

@@ -21,9 +21,9 @@ A clean, minimal face recognition pipeline built as an interview assignment.
 
 | Component | Detail |
 |-----------|--------|
-| AI Model | InsightFace `buffalo_l` — detection + 512-d embedding |
+| AI Model | InsightFace `buffalo_sc` (MobileFaceNet) — highly optimized for CPU edge-inference |
 | Similarity | Cosine similarity (L2-normalized dot product) |
-| Threshold | **89%** |
+| Thresholds | **89%** similarity, **100** Laplacian blur variance |
 | Database | SQLite (`faces.db`) |
 | UI | Streamlit |
 | Language | Python 3.9+ |
@@ -44,7 +44,7 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-> **First launch** downloads the `buffalo_l` model weights (~500 MB) automatically into `~/.insightface/models/` — one time only.
+> **First launch** downloads the `buffalo_sc` model weights automatically into `~/.insightface/models/` — one time only.
 
 ---
 
@@ -76,7 +76,7 @@ Face/
 ```
 Webcam Frame
     ↓
-InsightFace (buffalo_l)  —  detect face, extract 512-d embedding
+InsightFace (buffalo_sc) —  detect face, check blur, extract embedding
     ↓
 L2 Normalize embedding
     ↓
@@ -106,7 +106,7 @@ CREATE TABLE faces (
 | Constant | Value | Description |
 |----------|-------|-------------|
 | `DB_PATH` | `faces.db` | SQLite database file |
-| `MODEL_NAME` | `buffalo_l` | InsightFace model |
+| `MODEL_NAME` | `buffalo_sc` | InsightFace model |
 | `SIMILARITY_THRESHOLD` | `89` | Minimum cosine similarity (%) to recognize |
 | `MIN_FACE_AREA` | `4000` | Minimum face area in pixels² |
 | `MIN_DET_SCORE` | `0.60` | Minimum InsightFace detection confidence |

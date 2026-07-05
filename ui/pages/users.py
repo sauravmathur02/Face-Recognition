@@ -1,12 +1,9 @@
 import streamlit as st
-
 import backend as api
+from ui.components import render_header
 
 def render():
-    st.markdown("""
-    <div class="page-title">Registered Users</div>
-    <div class="page-subtitle">Browse and manage faces stored in the database</div>
-    """, unsafe_allow_html=True)
+    render_header("Identities", "Manage Registered Subjects")
 
     users = api.get_all_users()
 
@@ -14,21 +11,16 @@ def render():
     with search_col:
         query = st.text_input(
             "Search",
-            placeholder="🔍  Search by name…",
+            placeholder="Search subjects...",
             key="users_search",
             label_visibility="collapsed",
         )
     with count_col:
         st.markdown(f"""
-        <div style="
-            padding:0.55rem 1rem;
-            background:rgba(59,130,246,0.08);
-            border:1px solid rgba(59,130,246,0.25);
-            border-radius:10px;
-            text-align:center;
-            font-size:0.82rem; color:#60A5FA; font-weight:700;
-        ">
-            {len(users)} user{'s' if len(users)!=1 else ''}
+        <div style="height:100%; display:flex; align-items:center; justify-content:flex-end;">
+            <div class="badge primary" style="font-size:0.875rem; padding:0.4rem 0.75rem;">
+                <i class="ph ph-users"></i> {len(users)} Subjects
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -39,83 +31,44 @@ def render():
 
     if not users:
         st.markdown("""
-        <div class="glass-card" style="text-align:center; padding:2.5rem;">
-            <div style="font-size:2.5rem; margin-bottom:0.8rem;">🙈</div>
-            <div style="font-size:1rem; font-weight:700; color:#E2E8F0; margin-bottom:0.4rem;">
-                No users found
-            </div>
-            <div style="font-size:0.85rem; color:#64748B;">
-                Try a different search term, or register a new user.
-            </div>
+        <div class="premium-card" style="text-align:center; padding:4rem;">
+            <i class="ph ph-magnifying-glass" style="font-size:2.5rem; color:#475569; margin-bottom:1rem; display:block;"></i>
+            <div style="font-size:1rem; font-weight:600; color:#F8FAFC; margin-bottom:0.5rem;">No subjects found</div>
+            <div style="font-size:0.875rem; color:#94A3B8;">Adjust your search or enroll a new identity.</div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("➕  Register User", key="users_go_register"):
-            st.session_state.current_page = "Register"
-            st.rerun()
         return
 
     st.markdown("""
-    <div style="
-        display:grid; grid-template-columns:60px 1fr 120px;
-        gap:0.5rem; padding:0.5rem 1rem;
-        font-size:0.7rem; font-weight:700; color:#475569;
-        text-transform:uppercase; letter-spacing:0.1em;
-        border-bottom:1px solid rgba(255,255,255,0.06);
-        margin-bottom:0.4rem;
-    ">
+    <div style="display:grid; grid-template-columns:80px 1fr 120px; gap:1rem; padding:0.5rem 1rem; font-size:0.75rem; font-weight:600; color:#64748B; text-transform:uppercase; letter-spacing:0.05em; border-bottom:1px solid #111111; margin-bottom:0.5rem;">
         <div>ID</div>
-        <div>Name</div>
-        <div style="text-align:right;">Action</div>
+        <div>Subject Name</div>
+        <div style="text-align:right;">Actions</div>
     </div>
     """, unsafe_allow_html=True)
 
-    for uid, uname in users:
-        row_col1, row_col2, row_col3 = st.columns([1, 5, 2])
+    for idx, (uid, uname) in enumerate(users, start=1):
+        row_col1, row_col2, row_col3 = st.columns([0.8, 5, 1.2])
 
         with row_col1:
-            st.markdown(f"""
-            <div style="
-                padding:0.6rem 0;
-                font-size:0.8rem;
-                color:#475569;
-                font-weight:700;
-                font-family:monospace;
-            ">#{uid}</div>
-            """, unsafe_allow_html=True)
+            st.markdown(f'<div style="padding:0.75rem 0; font-size:0.875rem; color:#64748B; font-family:monospace;">{idx:04d}</div>', unsafe_allow_html=True)
 
         with row_col2:
             st.markdown(f"""
-            <div style="
-                padding:0.6rem 0;
-                font-size:0.9rem;
-                font-weight:600;
-                color:#E2E8F0;
-                display:flex; align-items:center; gap:0.5rem;
-            ">
-                <span style="
-                    width:32px; height:32px; border-radius:50%;
-                    background:linear-gradient(135deg,#3B82F6,#7C3AED);
-                    display:inline-flex; align-items:center;
-                    justify-content:center;
-                    font-size:0.75rem; font-weight:800; color:white;
-                    flex-shrink:0;
-                ">{uname[0].upper()}</span>
+            <div style="padding:0.6rem 0; font-size:0.9rem; font-weight:500; color:#F8FAFC; display:flex; align-items:center; gap:0.75rem;">
+                <div style="width:28px; height:28px; border-radius:4px; background-color:#111111; border:1px solid #1A1A1A; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:600; color:#94A3B8;">
+                    {uname[0].upper()}
+                </div>
                 {uname}
             </div>
             """, unsafe_allow_html=True)
 
         with row_col3:
-            st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
-            if st.button("🗑  Delete", key=f"del_{uid}", use_container_width=True):
+            if st.button("Revoke", key=f"del_{uid}", use_container_width=True):
                 ok = api.delete_user(uid)
                 if ok:
-                    st.success(f"Deleted '{uname}'.")
                     st.rerun()
                 else:
-                    st.error("Failed to delete user.")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown("""
-        <div style="height:1px; background:rgba(255,255,255,0.04);
-                    margin:0.1rem 0;"></div>
-        """, unsafe_allow_html=True)
+                    st.error("Failed to revoke identity.")
+        
+        st.markdown('<div style="height:1px; background-color:#111111; margin:0.25rem 0;"></div>', unsafe_allow_html=True)
