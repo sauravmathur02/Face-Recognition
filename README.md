@@ -1,19 +1,21 @@
-# Face Recognition
+# Vision AI: Face Recognition System
 
-A clean, minimal face recognition pipeline built as an interview assignment.
+## Project Description
+**Vision AI** is a high-performance, production-grade Face Recognition System designed to mimic commercial security pipelines. It is built to seamlessly register and identify human faces in real-time using a decoupled architecture. The backend leverages a blazing-fast **FastAPI** server powered by **InsightFace's MobileFaceNet (`buffalo_sc`)** model for highly optimized CPU edge-inference. For persistence, it utilizes a lightweight **SQLite** database to store mathematically robust 512-dimensional L2-normalized embeddings, guaranteeing lightning-fast lookup via Cosine Similarity. 
+
+The presentation layer is a modern **React (Vite)** Single Page Application featuring a cinematic, Palantir-inspired dark UI. The frontend includes a smart 1:1 face detection HUD, real-time webcam processing, and glassmorphic aesthetic dashboards for identity management and system monitoring. Whether scanning live camera feeds or managing identity enrollments, the system provides instantaneous feedback and high accuracy (≥89% similarity threshold).
 
 ---
 
 ## Features
 
-| Page | Description |
+| Area | Description |
 |------|-------------|
-| **Home** | Landing page — tech stack overview, quick-start buttons |
-| **Register User** | Upload images or capture from webcam → stores average embedding in SQLite |
-| **Face Recognition** | Live webcam feed with bounding boxes, name, and similarity % |
-| **Registered Users** | Table — ID, name, delete button, search box |
-| **Settings** | Read-only config display |
-| **About** | Workflow explanation |
+| **Architecture** | Fully decoupled Backend (Python/FastAPI) and Frontend (React/Vite) |
+| **Registration** | Upload images or capture directly via webcam with a smart 1:1 face detection HUD |
+| **Recognition** | Live high-fps webcam inference returning accurate bounding boxes, identities, and confidence scores |
+| **Database** | Lightweight SQLite (`faces.db`) storing 512-dimensional embeddings for robust multi-angle matching |
+| **Dashboard** | View registered identities, monitor system health, and manage API configurations |
 
 ---
 
@@ -21,94 +23,85 @@ A clean, minimal face recognition pipeline built as an interview assignment.
 
 | Component | Detail |
 |-----------|--------|
-| AI Model | InsightFace `buffalo_sc` (MobileFaceNet) — highly optimized for CPU edge-inference |
-| Similarity | Cosine similarity (L2-normalized dot product) |
-| Thresholds | **89%** similarity, **100** Laplacian blur variance |
-| Database | SQLite (`faces.db`) |
-| UI | Streamlit |
-| Language | Python 3.9+ |
+| **AI Model** | InsightFace `buffalo_sc` (MobileFaceNet) — optimized for CPU edge-inference |
+| **Backend** | Python, FastAPI, Uvicorn, OpenCV |
+| **Frontend** | React, Vite, Vanilla CSS (Glassmorphism UI) |
+| **Matching** | Cosine similarity (L2-normalized dot product) |
+| **Thresholds** | **89%** similarity |
+| **Database** | SQLite (`faces.db`) |
 
 ---
 
-## Setup
+## Setup & Running
 
+This project uses a decoupled architecture. You need to run the **Backend** and the **Frontend** in two separate terminals.
+
+### 1. Start the FastAPI Backend
 ```bash
-# 1. Create and activate virtual environment
+# Open Terminal 1
+cd "Face Recognition"
+
+# Create and activate virtual environment
 python -m venv .venv
 .venv\Scripts\activate
 
-# 2. Install dependencies
+# Install dependencies
 pip install -r requirements.txt
 
-# 3. Run
-streamlit run app.py
+# Start the API server
+python -m uvicorn api.main:app --reload
 ```
+> **Note:** First launch downloads the `buffalo_sc` model weights automatically into `~/.insightface/models/` — one time only.
 
-> **First launch** downloads the `buffalo_sc` model weights automatically into `~/.insightface/models/` — one time only.
+### 2. Start the React Frontend
+```bash
+# Open Terminal 2
+cd "Face Recognition/frontend"
+
+# Install Node modules (first time only)
+npm install
+
+# Start the Vite development server
+npm run dev
+```
 
 ---
 
 ## Project Structure
 
 ```
-Face/
-├── app.py              ← Streamlit entry point, sidebar, routing
-├── backend.py          ← InsightFace + SQLite + cosine similarity (no UI)
-├── config.py           ← All constants: threshold, model, DB path, camera
-├── utils.py            ← normalize_embedding, cosine_similarity, logger
-├── requirements.txt
-├── README.md
-└── ui/
-    ├── styles.py       ← Global dark glassmorphism CSS
-    └── pages/
-        ├── home.py         ← Landing page
-        ├── register.py     ← Register user (upload or webcam)
-        ├── recognition.py  ← Live webcam recognition
-        ├── users.py        ← Registered users table
-        ├── settings.py     ← Read-only settings
-        └── about.py        ← Workflow explanation
+Face Recognition/
+├── api/
+│   └── main.py         ← FastAPI REST endpoints (/api/recognize, /api/register)
+├── frontend/           ← React SPA (Vite)
+│   ├── src/
+│   │   ├── index.css   ← Global Design System & Animations
+│   │   ├── api/        ← Axios API client
+│   │   ├── components/ ← Reusable UI components
+│   │   └── pages/      ← Routes: Recognition, Register, Identities
+├── backend.py          ← Core AI engine (InsightFace + SQLite + Cosine Similarity)
+├── config.py           ← System constants (thresholds, DB path, model config)
+├── utils.py            ← Math and logging utilities
+├── requirements.txt    ← Python dependencies
+└── faces.db            ← SQLite Database (auto-generated)
 ```
 
 ---
 
-## How It Works
+## How the AI Pipeline Works
 
 ```
-Webcam Frame
+Webcam Frame (Frontend)
     ↓
-InsightFace (buffalo_sc) —  detect face, check blur, extract embedding
+Sent via multipart/form-data to FastAPI (/api/recognize)
+    ↓
+InsightFace (buffalo_sc) — Detects face, extracts 512-D embedding
     ↓
 L2 Normalize embedding
     ↓
 Cosine Similarity  vs.  all stored embeddings (vectorized dot product)
     ↓
-SQLite lookup  —  name WHERE similarity ≥ 89%
+SQLite lookup  —  Matches WHERE similarity ≥ 89%
     ↓
-✅ Name + Similarity%   OR   ❓ Unknown
+Returns JSON: Bounding Boxes + Name + Similarity % (or Unknown)
 ```
-
----
-
-## Database Schema
-
-```sql
-CREATE TABLE faces (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    name      TEXT    NOT NULL,
-    embedding BLOB    NOT NULL
-);
-```
-
----
-
-## Configuration (`config.py`)
-
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `DB_PATH` | `faces.db` | SQLite database file |
-| `MODEL_NAME` | `buffalo_sc` | InsightFace model |
-| `SIMILARITY_THRESHOLD` | `89` | Minimum cosine similarity (%) to recognize |
-| `MIN_FACE_AREA` | `4000` | Minimum face area in pixels² |
-| `MIN_DET_SCORE` | `0.60` | Minimum InsightFace detection confidence |
-| `MIN_REG_IMAGES` | `3` | Minimum images required to register a user |
-| `CAMERA_ID` | `0` | OpenCV camera device index |
